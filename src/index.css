@@ -1,0 +1,276 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: 'Manrope', sans-serif;
+  background-color: #08090a;
+  color: white;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+.hero-bg {
+  background-image: url('https://framerusercontent.com/images/T2bKw7DHJHWSlaE9uwaJ1TzFZs.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.gradient-text {
+  background: linear-gradient(90deg, #6056ff, #7e75ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.backdrop-blur-custom {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.animate-delay-200 {
+  animation-delay: 0.2s;
+}
+
+.animate-delay-500 {
+  animation-delay: 0.5s;
+}
+
+.animate-delay-800 {
+  animation-delay: 0.8s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Custom scrollbar for carousels */
+.custom-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.custom-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mask for carousel fade effect */
+.carousel-mask {
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 12.5%, rgba(0, 0, 0, 1) 87.5%, rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 12.5%, rgba(0, 0, 0, 1) 87.5%, rgba(0, 0, 0, 0) 100%);
+}
+
+/* Enhanced glass morphism */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.glass-card-hover {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Enhanced gradients */
+.gradient-primary {
+  background: linear-gradient(135deg, #6056ff 0%, #7e75ff 50%, #9b8aff 100%);
+}
+
+.gradient-secondary {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 50%, #ffb3b3 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, #4ecdc4 0%, #6ee7df 50%, #8ef0e8 100%);
+}
+
+/* Shadow utilities */
+.shadow-glass {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(96, 86, 255, 0.3);
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .container-responsive {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container-responsive {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .container-responsive {
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Style dropdown options to match dark theme */
+select option {
+  background-color: #1f2937 !important;
+  color: white !important;
+  padding: 12px 16px !important;
+  height: 40px !important;
+  line-height: 16px !important;
+}
+
+select option:hover {
+  background-color: #374151 !important;
+}
+
+/* Remove default browser styling from select */
+select {
+  background-image: none !important;
+}
+
+/* Ensure consistent dropdown appearance across browsers */
+select:focus {
+  outline: none;
+}
+
+/* Style for Firefox */
+select:-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 #000;
+}
+
+/* Style for IE/Edge */
+select::-ms-expand {
+  display: none;
+}
+
+/* Hide scrollbar but keep scrolling functionality */
+select {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+select::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
+
+/* Enable smooth scrolling */
+select {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced dropdown scrolling experience */
+select {
+  overflow-y: auto;
+  max-height: 120px; /* Height for approximately 3 options */
+}
+
+/* Ensure options are properly sized */
+select option {
+  height: 40px !important;
+  line-height: 16px !important;
+  padding: 12px 16px !important;
+  box-sizing: border-box !important;
+}
+
+/* Style for normal dropdowns (not sized) */
+select:not([size]) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+}
+
+/* Ensure the dropdown maintains proper spacing */
+select option:first-child {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+select option:last-child {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+/* Add subtle visual feedback during scrolling */
+select:active {
+  cursor: grabbing;
+}
+
+/* Ensure consistent behavior across different browsers */
+select {
+  -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+}
