@@ -316,7 +316,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUser }) =
           <div className="hidden md:block">
             <div className="glass-card min-h-screen border border-white/10">
               {renderHeader()}
-              <Profile user={user} onLogout={onLogout} onUpdateUser={onUpdateUser} />
+              {(() => {
+                // Always map all profile fields from user/userProfile
+                const profileUser = {
+                  name: (userProfile as any)?.name ?? (user as any)?.name ?? '',
+                  email: (userProfile as any)?.email ?? (user as any)?.email ?? '',
+                  rollNumber: (userProfile as any)?.registration_no ?? (user as any)?.rollNumber ?? '',
+                  hostelCode: (userProfile as any)?.hostel_code ?? (user as any)?.hostelCode ?? '',
+                  hostelNumber: (userProfile as any)?.hostel_number ?? (user as any)?.hostelNumber ?? '',
+                  roomNumber: (userProfile as any)?.room_number ?? (user as any)?.roomNumber ?? '',
+                  preferences: (userProfile as any)?.preferences ?? (user as any)?.preferences ?? {},
+                };
+                return (
+                  <Profile user={profileUser} onLogout={onLogout} onUpdateUser={onUpdateUser} />
+                );
+              })()}
             </div>
           </div>
 
@@ -324,7 +338,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUser }) =
           <div className="md:hidden">
             <div className="max-w-md mx-auto glass-card min-h-screen border-x border-white/10">
               {renderHeader()}
-              <Profile user={user} onLogout={onLogout} onUpdateUser={onUpdateUser} />
+              {(() => {
+                // Always map all profile fields from user/userProfile
+                const profileUser = {
+                  name: (userProfile as any)?.name ?? (user as any)?.name ?? '',
+                  email: (userProfile as any)?.email ?? (user as any)?.email ?? '',
+                  rollNumber: (userProfile as any)?.registration_no ?? (user as any)?.rollNumber ?? '',
+                  hostelCode: (userProfile as any)?.hostel_code ?? (user as any)?.hostelCode ?? '',
+                  hostelNumber: (userProfile as any)?.hostel_number ?? (user as any)?.hostelNumber ?? '',
+                  roomNumber: (userProfile as any)?.room_number ?? (user as any)?.roomNumber ?? '',
+                  preferences: (userProfile as any)?.preferences ?? (user as any)?.preferences ?? {},
+                };
+                return (
+                  <Profile user={profileUser} onLogout={onLogout} onUpdateUser={onUpdateUser} />
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff, ArrowRight, Home, Hash } from 'lucide-react';
 import { Button } from './Button';
-import { createUserProfile, UserSignupData } from '../utils/supabase';
+import { createUserProfile, UserSignupData, supabase } from '../utils/supabase';
+import SupabaseAuthForm from './SupabaseAuthForm';
 
 interface AuthFormProps {
   onLogin: (userData: any) => void;
@@ -9,6 +10,7 @@ interface AuthFormProps {
 
 const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [adminMode, setAdminMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -39,7 +41,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (isLogin) {
       // Simple login logic - in real app, validate against backend
       if (formData.email && formData.password) {
@@ -63,35 +65,136 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
 
       setLoading(true);
       try {
-        const userData: UserSignupData = {
-          email: formData.email,
-          registration_no: formData.rollNumber,
-          name: formData.name,
-          gender: formData.gender,
-          hostel_code: formData.hostelCode,
-          hostel_number: formData.hostelNumber,
-          room_number: formData.roomNumber
-        };
-
-        const user = await createUserProfile(userData);
-        if (user) {
-          onLogin({
-            ...user,
-            name: user.name,
-            email: user.email,
-            hostel: `${user.hostel_code}${user.hostel_number}`,
-            preferences: {
-              notifications: {
-                global: false,
-                breakfast: false,
-                lunch: false,
-                snacks: false,
-                dinner: false
+        if (adminMode) {
+          // Admin registration: save to admins table (only email and name)
+          try {
+            // First check if admins table exists and has required columns
+            const { error: checkError } = await supabase
+              .from('admins')
+              .select('id')
+              .limit(1);
+            
+            if (checkError) {
+              console.error('Admin table check error:', checkError);
+              
+              if (checkError.code === 'PGRST205' || checkError.message?.includes('does not exist')) {
+                setErrors({ 
+                  email: 'The admins table does not exist. Please run create_weekly_menus_and_admins.sql in your Supabase SQL Editor first.' 
+                });
+                setLoading(false);
+                return;
               }
             }
-          });
+            
+            // Try to create admin with just ID first (in case email/name columns don't exist)
+            const { data: adminData, error: adminError } = await supabase
+              .from('admins')
+              .insert([{ id: (await supabase.auth.getUser()).data.user?.id }])
+              .select()
+              .single();
+              
+            if (adminError) {
+              console.error('Admin creation error (ID only):', adminError);
+              
+              // If columns don't exist error, provide clear instructions
+              if (adminError.code === '42703' && adminError.message?.includes('column')) {
+                setErrors({ 
+                  email: 'Database schema issue. Please run the updated create_weekly_menus_and_admins.sql script which adds the missing columns.' 
+                });
+                setLoading(false);
+                return;
+              } else if (adminError.code === '23505' || adminError.message?.includes('duplicate key')) {
+                // This is fine - admin already exists with this ID
+                console.log('Admin already exists with this ID, continuing');
+              } else {
+                // Other error with plain ID insert
+                setErrors({ email: `Admin creation failed: ${adminError.message}` });
+                setLoading(false);
+                return;
+              }
+            }
+            
+            // Now try with email and name too
+            try {
+              const { data, error } = await supabase
+                .from('admins')
+                .update({ email: formData.email, name: formData.name })
+                .eq('id', (await supabase.auth.getUser()).data.user?.id)
+                .select()
+                .single();
+                
+              if (error) {
+                // If columns don't exist error, we already handled it above
+                if (error.code === '42703' && error.message?.includes('column')) {
+                  // Successfully created admin with just ID, that's good enough
+                  onLogin({
+                    id: (await supabase.auth.getUser()).data.user?.id,
+                    role: 'admin',
+                    email: formData.email, // Use form data since we couldn't save it
+                    name: formData.name,
+                  });
+                } else {
+                  setErrors({ email: `Failed to update admin details: ${error.message}` });
+                  setLoading(false);
+                }
+              } else {
+                // Successfully created/updated admin with all fields
+                onLogin({
+                  ...data,
+                  role: 'admin',
+                  email: data.email || formData.email,
+                  name: data.name || formData.name,
+                });
+              }
+            } catch (updateError: any) {
+              console.error('Admin update error:', updateError);
+              // Still login the user since the admin record exists
+              onLogin({
+                id: (await supabase.auth.getUser()).data.user?.id,
+                role: 'admin',
+                email: formData.email,
+                name: formData.name,
+              });
+            }
+          } catch (error: any) {
+            console.error('Admin creation exception:', error);
+            setErrors({ 
+              email: `An unexpected error occurred: ${error.message || 'Unknown error'}` 
+            });
+            setLoading(false);
+          }
         } else {
-          setErrors({ email: 'Failed to create user profile. Please try again.' });
+          // User registration: save to users table
+          const userData: UserSignupData = {
+            email: formData.email,
+            registration_no: formData.rollNumber,
+            name: formData.name,
+            gender: formData.gender,
+            hostel_code: formData.hostelCode,
+            hostel_number: formData.hostelNumber,
+            room_number: formData.roomNumber
+          };
+
+          const user = await createUserProfile(userData);
+          if (user) {
+            onLogin({
+              ...user,
+              name: user.name,
+              email: user.email,
+              hostel: `${user.hostel_code}${user.hostel_number}`,
+              preferences: {
+                notifications: {
+                  global: false,
+                  breakfast: false,
+                  lunch: false,
+                  snacks: false,
+                  dinner: false
+                }
+              }
+            });
+          } else {
+            setErrors({ email: 'Failed to create user profile. Please try again.' });
+          }
         }
       } catch (error) {
         console.error('Signup error:', error);
@@ -124,8 +227,18 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
 
   return (
     <div className="w-full animate-fade-in-up">
+      {/* Admin/User toggle */}
+      <div className="flex justify-center mb-4">
+        <div className="bg-white/10 rounded-2xl p-1 inline-flex">
+          <button type="button" onClick={() => setAdminMode(false)} className={`px-4 py-2 rounded-2xl ${!adminMode ? 'bg-primary-500 text-white' : 'text-white/80'}`}>User</button>
+          <button type="button" onClick={() => setAdminMode(true)} className={`px-4 py-2 rounded-2xl ${adminMode ? 'bg-primary-500 text-white' : 'text-white/80'}`}>Admin</button>
+        </div>
+      </div>
       {/* Header */}
       <div className="text-center mb-8 animate-fade-in-up animate-delay-200">
+        {adminMode && (
+          <p className="text-white/70 mt-2">Admin mode: use Supabase email/password to sign in.</p>
+        )}
         <div className="w-20 h-20 bg-gradient-primary rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-glow">
           <span className="text-3xl">🍽️</span>
         </div>
@@ -148,6 +261,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
           </p>
         </div>
 
+        {adminMode ? (
+          <div className="mt-4">
+            <SupabaseAuthForm onLogin={(profile) => {
+              // mark role as admin for app routing
+              onLogin({ ...profile, role: 'admin' })
+            }} />
+          </div>
+        ) : (
+        <>
         <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
           {!isLogin && (
             <>
@@ -362,6 +484,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
             </span>
           </button>
         </div>
+        </>
+        )}
       </div>
 
       {/* Footer */}

@@ -1,6 +1,7 @@
 -- Users table for hostel management system
+-- Link users.id to auth.users(id) so application users map 1:1 to Supabase auth users
 CREATE TABLE IF NOT EXISTS users (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   registration_no TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
@@ -52,3 +53,22 @@ CREATE TRIGGER update_users_updated_at
 -- VALUES 
 --   ('john.doe@iter.ac.in', '2024CS001', 'John Doe', 'male', 'BH', 1, 'A-101'),
 --   ('jane.smith@iter.ac.in', '2024CS002', 'Jane Smith', 'female', 'LH', 1, 'B-201');
+
+-- Weekly menus table for hostel menu management
+CREATE TABLE IF NOT EXISTS weekly_menus (
+  id BIGSERIAL PRIMARY KEY,
+  hostel_code TEXT NOT NULL CHECK (hostel_code IN ('BH', 'LH')),
+  hostel_number INTEGER NOT NULL CHECK (hostel_number > 0),
+  season TEXT NOT NULL,
+  week INTEGER NOT NULL,
+  days_data JSONB NOT NULL,
+  campus TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Ensure a menu is unique per hostel/week/season/campus
+ALTER TABLE weekly_menus
+  DROP CONSTRAINT IF EXISTS uq_weekly_menu_identity;
+ALTER TABLE weekly_menus
+  ADD CONSTRAINT uq_weekly_menu_identity
+  UNIQUE (hostel_code, hostel_number, season, week, campus);

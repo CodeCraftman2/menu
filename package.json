@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:admin-uploader": "node tools/dev_uploader_server.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

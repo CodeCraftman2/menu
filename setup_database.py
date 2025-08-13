@@ -33,7 +33,7 @@ def setup_users_table():
         # Create users table
         """
         CREATE TABLE IF NOT EXISTS users (
-          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
           email TEXT UNIQUE NOT NULL,
           registration_no TEXT UNIQUE NOT NULL,
           name TEXT NOT NULL,

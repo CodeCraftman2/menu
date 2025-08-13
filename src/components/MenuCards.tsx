@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Bell, BellOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Bell, BellOff, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { Button } from './Button';
 import { fetchMenuForDate, DayMenu } from '../utils/supabase';
 import { getCurrentSeason, getUserHostel, isFallbackMenu } from '../utils/menuUtils';
@@ -36,6 +36,34 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
   const [selectedDate, setSelectedDate] = useState(new Date()); // Track which date is selected in week view
   const [selectedDateMenu, setSelectedDateMenu] = useState<DayMenu | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Responsive items limit and expand/collapse state for meal items
+  const [expandedMeals, setExpandedMeals] = useState<Record<string, boolean>>({
+    breakfast: false,
+    lunch: false,
+    snacks: false,
+    dinner: false
+  });
+
+  const computeItemsLimit = () => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    if (w < 640) return 5; // small screens
+    if (w < 1024) return 7; // medium screens
+    return 9; // large screens
+  };
+
+  const [itemsLimit, setItemsLimit] = useState<number>(computeItemsLimit());
+
+  useEffect(() => {
+    const handler = () => setItemsLimit(computeItemsLimit());
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
+  const toggleExpand = (key: string) => {
+    setExpandedMeals(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Get user's hostel and current season
   const userHostel = getUserHostel(user);
@@ -260,11 +288,24 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
 
   const meals = createMealsFromMenu(selectedDateMenu);
 
+  // Live button refresh function
+  const refreshMenuData = async () => {
+    setRefreshing(true);
+    try {
+      const menuData = await fetchMenuForDate(selectedDate, userHostel, currentSeason);
+      setSelectedDateMenu(menuData);
+    } catch (error) {
+      console.error('Error refreshing menu data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Week Calendar Section */}
       <div className="glass-card rounded-3xl p-6">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
           <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
             <h2 className="text-lg sm:text-xl md:text-2xl font-bold gradient-text">
               Checkout what's in this week!
@@ -277,15 +318,8 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
               {isFallbackMenu(selectedDateMenu) ? 'Sample Data' : 'Live Data'}
             </div>
           </div>
+          {/* Restore only the Today and Live buttons, remove arrows beside them */}
           <div className="flex items-center space-x-2">
-            <Button
-              onClick={goToPreviousWeek}
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-            >
-              <ChevronLeft className="w-5 h-5 text-white" />
-            </Button>
             <Button
               onClick={goToCurrentWeek}
               variant="outline"
@@ -294,14 +328,7 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
             >
               Today
             </Button>
-            <Button
-              onClick={goToNextWeek}
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-            >
-              <ChevronRight className="w-5 h-5 text-white" />
-            </Button>
+            {/* Removed Live button */}
           </div>
         </div>
 
@@ -312,9 +339,9 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
             onClick={goToPreviousWeek}
             variant="glass"
             size="icon"
-            className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-2 z-10 w-8 h-8 md:w-10 md:h-10 rounded-full backdrop-blur-custom border-white/20"
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-2 z-10 w-8 h-8 md:w-10 md:h-10 rounded-full backdrop-blur-custom border-white/20 flex items-center justify-center"
           >
-            <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-white" />
+            <ChevronLeft className="w-5 h-5 text-white" />
           </Button>
 
           {/* Right Arrow */}
@@ -322,9 +349,9 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
             onClick={goToNextWeek}
             variant="glass"
             size="icon"
-            className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-2 z-10 w-8 h-8 md:w-10 md:h-10 rounded-full backdrop-blur-custom border-white/20"
+            className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-2 z-10 w-8 h-8 md:w-10 md:h-10 rounded-full backdrop-blur-custom border-white/20 flex items-center justify-center"
           >
-            <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-white" />
+            <ChevronRight className="w-5 h-5 text-white" />
           </Button>
 
           {/* Week Dates Grid */}
@@ -364,7 +391,7 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
             })}
           </div>
         </div>
-
+        
         {/* Week Navigation Info */}
         <div className="mt-4 text-center">
           <p className="text-white/60 text-sm">
@@ -395,23 +422,23 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
       </div>
 
               {/* Current Menu Section */}
-        <div className="glass-card rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl md:text-2xl font-bold gradient-text">
+        <div className="glass-card rounded-3xl p-4"> {/* reduced from p-6 to p-4 */}
+          <div className="flex items-center justify-between mb-4"> {/* reduced from mb-6 to mb-4 */}
+            <h2 className="text-lg md:text-xl font-bold gradient-text"> {/* reduced from text-xl/md:text-2xl */}
               Menu for {selectedDate.toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 month: 'long', 
                 day: 'numeric' 
-              })} 🍽️
+              })}
             </h2>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2"> {/* reduced from space-x-3 */}
               {loading && (
                 <div className="flex items-center space-x-2 text-primary-400">
                   <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin"></div>
                   <span className="text-sm">Loading...</span>
                 </div>
               )}
-              <div className="text-white/60 text-sm">
+              <div className="text-white/60 text-xs"> {/* reduced from text-sm */}
                 {selectedWeek === 0 ? 'Current week' : `Date: ${selectedDate.toLocaleDateString('en-US', { 
                   month: 'short', 
                   day: 'numeric', 
@@ -422,21 +449,25 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
           </div>
 
         {/* Meal Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4"> {/* reduced gap */}
           {meals.map((meal) => {
             const isCurrent = isCurrentMeal(meal);
             const hasNotification = notifications[meal.key] || notifications.global;
-            
+            const expanded = expandedMeals[meal.key];
+            const itemsLimit = 6; // fixed menu item limit
+            const showMore = meal.items.length > itemsLimit && !expanded;
+            const showLess = expanded && meal.items.length > itemsLimit;
+
             return (
               <div
                 key={meal.key}
-                className={`relative glass-card rounded-3xl p-6 transition-all duration-300 hover:glass-card-hover flex flex-col min-h-80 ${
-                  isCurrent ? 'ring-2 ring-primary-500 ring-opacity-50 shadow-glow' : ''
+                className={`relative glass-card rounded-2xl p-4 transition-all duration-300 hover:glass-card-hover flex flex-col ${
+                  expanded ? 'max-h-none' : 'max-h-96'
                 }`}
               >
                 {/* Notification Ball Icon */}
-                <div className="absolute top-3 left-3">
-                  <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                <div className="absolute top-2 left-2">
+                  <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
                     hasNotification
                       ? 'bg-yellow-400 animate-pulse shadow-glow'
                       : 'bg-white/30'
@@ -444,50 +475,67 @@ const MenuCards: React.FC<MenuCardsProps> = ({ menu, user, isToday, currentTime 
                 </div>
 
                 {/* Header Section */}
-                <div className="text-center mb-4">
-                  <div className="text-3xl mb-2">{meal.emoji}</div>
-                  <h3 className="text-lg font-semibold text-white mb-1">{meal.name}</h3>
-                  <p className="text-white/60 text-sm">{meal.time}</p>
+                <div className="text-center mb-2">
+                  <div className="text-2xl mb-1">{meal.emoji}</div>
+                  <h3 className="text-base font-semibold text-white mb-1">{meal.name}</h3>
+                  <p className="text-white/60 text-xs">{meal.time}</p>
                 </div>
 
                 {/* Menu Items Section - Flexible */}
-                <div className="flex-1 space-y-2 mb-4 min-h-0">
-                  {meal.items.slice(0, 3).map((item, itemIndex) => (
-                    <div key={itemIndex} className="text-white/80 text-sm text-center">
+                <div className="flex-1 space-y-1 mb-2 min-h-0">
+                  {(expanded ? meal.items : meal.items.slice(0, itemsLimit)).map((item, itemIndex) => (
+                    <div key={itemIndex} className="text-white/80 text-xs text-center">
                       {item}
                     </div>
                   ))}
-                  {meal.items.length > 3 && (
+                  {showMore && (
                     <div className="text-white/60 text-xs text-center">
-                      +{meal.items.length - 3} more items
+                      <button
+                        type="button"
+                        className="underline hover:text-white/80"
+                        onClick={() => toggleExpand(meal.key)}
+                      >
+                        ...more
+                      </button>
+                    </div>
+                  )}
+                  {showLess && (
+                    <div className="text-white/60 text-xs text-center">
+                      <button
+                        type="button"
+                        className="underline hover:text-white/80"
+                        onClick={() => toggleExpand(meal.key)}
+                      >
+                        Show less
+                      </button>
                     </div>
                   )}
                 </div>
 
                 {/* Bottom Section - Fixed at bottom */}
-                <div className="mt-auto pt-2">
+                <div className="mt-auto pt-1">
                   <div className="flex items-center justify-between">
                     <Button
                       onClick={() => toggleDashboardNotification(meal.key)}
                       variant={hasNotification ? 'primary' : 'ghost'}
                       size="sm"
-                      className="flex-1 mr-2"
+                      className="flex-1 mr-1"
                     >
                       {hasNotification ? (
                         <>
-                          <Bell className="w-4 h-4 mr-2 text-white" />
+                          <Bell className="w-4 h-4 mr-1 text-white" />
                           On
                         </>
                       ) : (
                         <>
-                          <BellOff className="w-4 h-4 mr-2 text-white" />
+                          <BellOff className="w-4 h-4 mr-1 text-white" />
                           Off
                         </>
                       )}
                     </Button>
                     
                     {isCurrent && (
-                      <div className="flex items-center text-primary-400 text-sm">
+                      <div className="flex items-center text-primary-400 text-xs">
                         <Clock className="w-4 h-4 mr-1 text-white" />
                         <span>Live</span>
                       </div>

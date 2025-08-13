@@ -55,20 +55,52 @@ export interface DayMenu {
   dinner: string[]
 }
 
+// Admin interface
+export interface Admin {
+  id?: string
+  email: string
+  name: string
+  created_at?: string
+}
+
 // User management functions
 export const createUserProfile = async (userData: UserSignupData): Promise<User | null> => {
   try {
+    // Try to include the authenticated user's id so RLS (auth.uid() = id) passes and PK constraint is satisfied
+    const { data: authData } = await supabase.auth.getUser();
+    const authUserId = authData?.user?.id || undefined;
+
+    const payload: any = {
+      ...userData,
+    };
+    if (authUserId) {
+      (payload as any).id = authUserId;
+    }
+
+    // Use upsert to avoid 409 conflicts on repeated registrations
+    // Prefer primary key (id) conflict if available; otherwise email is unique too
     const { data, error } = await supabase
       .from('users')
-      .insert([userData])
+      .upsert([payload], { onConflict: authUserId ? 'id' : 'email' })
       .select()
-      .single()
-    
+      .single();
+
     if (error) {
-      console.error('Error creating user profile:', error)
+      console.error('Error creating user profile:', error);
+
+      // If conflict persists, try fetching existing record by email
+      if (error.code === '23505' || (error.status === 409)) {
+        const { data: existing, error: selectError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', userData.email)
+          .single();
+        if (!selectError && existing) return existing as User;
+      }
+
       // If table doesn't exist, create a mock user for now
-      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
-        console.log('Users table not found, creating mock user profile')
+      if ((error as any).code === 'PGRST205' || (error as any).message?.includes('does not exist')) {
+        console.log('Users table not found, creating mock user profile');
         return {
           id: `mock-${Date.now()}`,
           email: userData.email,
@@ -80,16 +112,16 @@ export const createUserProfile = async (userData: UserSignupData): Promise<User 
           room_number: userData.room_number,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        }
+        };
       }
-      return null
+      return null;
     }
-    
-    return data
+
+    return data as User;
   } catch (error) {
-    console.error('Error creating user profile:', error)
+    console.error('Error creating user profile:', error);
     // Create a mock user as fallback
-    console.log('Creating mock user profile due to error')
+    console.log('Creating mock user profile due to error');
     return {
       id: `mock-${Date.now()}`,
       email: userData.email,
@@ -101,7 +133,7 @@ export const createUserProfile = async (userData: UserSignupData): Promise<User 
       room_number: userData.room_number,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
-    }
+    };
   }
 }
 
@@ -350,5 +382,32 @@ const convertDayData = (dayData: any): DayMenu => {
     lunch: dayData.LUNCH ? dayData.LUNCH.split(', ') : [],
     snacks: dayData.SNACKS ? dayData.SNACKS.split(', ') : [],
     dinner: dayData.DINNER ? dayData.DINNER.split(', ') : []
+  }
+}
+
+export const createAdminProfile = async (adminData: { email: string, name: string }): Promise<Admin | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('admins')
+      .insert([adminData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating admin profile:', error);
+      
+      // Check for specific errors
+      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        console.error('The admins table does not exist. Please run create_weekly_menus_and_admins.sql');
+      } else if (error.code === '42501' || error.message?.includes('permission denied')) {
+        console.error('Permission denied. If this is the first admin, ensure the "Bootstrap first admin" policy exists.');
+      }
+      
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.error('Error creating admin profile:', error);
+    return null;
   }
 }

@@ -9,13 +9,16 @@ load_dotenv()
 
 # Initialize Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://goecucoqhsedhilvwxeg.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvZWN1Y29xaHNlZGhpbHZ3eGVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NjQ0MzIsImV4cCI6MjA3MDU0MDQzMn0.CYT8U5phPd7wA4qo5wUQsbxpvWju2fnMAXKdZSWiyTw")
+# Prefer service key for write operations if provided (bypasses RLS); fallback to anon/admin key
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_KEY = SUPABASE_SERVICE_KEY or os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvZWN1Y29xaHNlZGhpbHZ3eGVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NjQ0MzIsImV4cCI6MjA3MDU0MDQzMn0.CYT8U5phPd7wA4qo5wUQsbxpvWju2fnMAXKdZSWiyTw")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("❌ Error: SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
+    print("❌ Error: SUPABASE_URL and SUPABASE_KEY (or SUPABASE_SERVICE_KEY) must be set in environment variables")
     print("Create a .env file with:")
     print("SUPABASE_URL=your_supabase_url")
-    print("SUPABASE_KEY=your_supabase_key")
+    print("SUPABASE_SERVICE_KEY=your_service_role_key  # preferred for uploads")
+    print("# or SUPABASE_KEY=your_anon_or_admin_key   # if your admin JWT is used")
     exit(1)
 
 # Supabase API headers
@@ -112,11 +115,15 @@ def main():
         
         if response.status_code == 200:
             print("✅ Connected to Supabase successfully")
+        elif response.status_code == 404:
+            print("❌ 404 Not Found: The 'weekly_menus' table or route is missing.")
+            print("   Please run create_weekly_menus_and_admins.sql in Supabase SQL Editor first.")
+            return
         else:
             print(f"❌ Supabase connection failed: {response.status_code} - {response.text}")
             print("\nTroubleshooting:")
-            print("1. Verify SUPABASE_URL and SUPABASE_KEY are correct")
-            print("2. Ensure you created the 'weekly_menus' table")
+            print("1. Verify SUPABASE_URL and SUPABASE_KEY/SUPABASE_SERVICE_KEY are correct")
+            print("2. Ensure you created the 'weekly_menus' table (run the provided SQL)")
             print("3. Check your internet connection")
             return
     except Exception as e:

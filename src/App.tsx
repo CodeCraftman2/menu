@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
+import AdminPage from './components/AdminPage';
 import { initializeNotifications } from './utils/notificationUtils';
 import './index.css';
 
@@ -77,11 +78,15 @@ function App() {
       {/* Main Content */}
       <div className="relative z-10 min-h-screen">
         {user ? (
-          <Dashboard 
-            user={user} 
-            onLogout={handleLogout} 
-            onUpdateUser={handleUpdateUser} 
-          />
+          user.role === 'admin' ? (
+            <AdminPage user={user} onLogout={handleLogout} />
+          ) : (
+            <Dashboard 
+              user={user} 
+              onLogout={handleLogout} 
+              onUpdateUser={handleUpdateUser} 
+            />
+          )
         ) : (
           <div className="min-h-screen flex items-center justify-center container-responsive">
             <div className="w-full max-w-md">

@@ -45,7 +45,7 @@ export const Button: React.FC<ButtonProps> = ({
       {Icon && iconPosition === 'left' && (
         <Icon className={`w-5 h-5 ${size === 'icon' ? '' : 'mr-2'}`} />
       )}
-      {size !== 'icon' && children}
+      {children}
       {Icon && iconPosition === 'right' && (
         <Icon className={`w-5 h-5 ${size === 'icon' ? '' : 'ml-2'}`} />
       )}

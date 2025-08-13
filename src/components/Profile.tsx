@@ -239,50 +239,42 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
               />
             </div>
-            {editedUser.rollNumber && (
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">Roll Number</label>
-                <input
-                  type="text"
-                  value={editedUser.rollNumber}
-                  onChange={(e) => handleInputChange('rollNumber', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
-                />
-              </div>
-            )}
-            {editedUser.hostelCode && (
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">Hostel Code</label>
-                <input
-                  type="text"
-                  value={editedUser.hostelCode}
-                  onChange={(e) => handleInputChange('hostelCode', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
-                />
-              </div>
-            )}
-            {editedUser.hostelNumber && (
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">Hostel Number</label>
-                <input
-                  type="number"
-                  value={editedUser.hostelNumber}
-                  onChange={(e) => handleInputChange('hostelNumber', parseInt(e.target.value))}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
-                />
-              </div>
-            )}
-            {editedUser.roomNumber && (
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">Room Number</label>
-                <input
-                  type="text"
-                  value={editedUser.roomNumber}
-                  onChange={(e) => handleInputChange('roomNumber', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">Roll Number</label>
+              <input
+                type="text"
+                value={editedUser.rollNumber}
+                onChange={(e) => handleInputChange('rollNumber', e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">Hostel Code</label>
+              <input
+                type="text"
+                value={editedUser.hostelCode}
+                onChange={(e) => handleInputChange('hostelCode', e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">Hostel Number</label>
+              <input
+                type="number"
+                value={editedUser.hostelNumber}
+                onChange={(e) => handleInputChange('hostelNumber', parseInt(e.target.value))}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">Room Number</label>
+              <input
+                type="text"
+                value={editedUser.roomNumber}
+                onChange={(e) => handleInputChange('roomNumber', e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300"
+              />
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -294,24 +286,18 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
               <Mail className="w-5 h-5 text-white/60" />
               <span className="text-white">{user.email}</span>
             </div>
-            {user.rollNumber && (
-              <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-2xl">
-                <User className="w-5 h-5 text-white/60" />
-                <span className="text-white">Roll: {user.rollNumber}</span>
-              </div>
-            )}
-            {user.hostelCode && user.hostelNumber && (
-              <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-2xl">
-                <Home className="w-5 h-5 text-white/60" />
-                <span className="text-white">{user.hostelCode} {user.hostelNumber}</span>
-              </div>
-            )}
-            {user.roomNumber && (
-              <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-2xl">
-                <Home className="w-5 h-5 text-white/60" />
-                <span className="text-white">Room: {user.roomNumber}</span>
-              </div>
-            )}
+            <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-2xl">
+              <User className="w-5 h-5 text-white/60" />
+              <span className="text-white">Roll: {user.rollNumber}</span>
+            </div>
+            <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-2xl">
+              <Home className="w-5 h-5 text-white/60" />
+              <span className="text-white">{user.hostelCode} {user.hostelNumber}</span>
+            </div>
+            <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-2xl">
+              <Home className="w-5 h-5 text-white/60" />
+              <span className="text-white">Room: {user.roomNumber}</span>
+            </div>
           </div>
         )}
       </div>
