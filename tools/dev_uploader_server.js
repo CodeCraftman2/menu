@@ -50,12 +50,21 @@ app.post('/run-upload', upload.array('files'), async (req, res) => {
     // Collect env for the Python process (pass-through selected vars)
     const env = { ...process.env }
     // Allow client to provide SUPABASE_* overrides if needed
-    const { SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_KEY, SUPABASE_ADMIN_EMAIL, SUPABASE_ADMIN_PASSWORD } = req.body || {}
+    const { 
+      SUPABASE_URL, 
+      SUPABASE_SERVICE_KEY, 
+      SUPABASE_KEY, 
+      SUPABASE_ADMIN_EMAIL, 
+      SUPABASE_ADMIN_PASSWORD,
+      SUPABASE_AUTH_TOKEN  // Add token support for already authenticated admins
+    } = req.body || {}
+    
     if (SUPABASE_URL) env.SUPABASE_URL = SUPABASE_URL
     if (SUPABASE_SERVICE_KEY) env.SUPABASE_SERVICE_KEY = SUPABASE_SERVICE_KEY
     if (SUPABASE_KEY) env.SUPABASE_KEY = SUPABASE_KEY
     if (SUPABASE_ADMIN_EMAIL) env.SUPABASE_ADMIN_EMAIL = SUPABASE_ADMIN_EMAIL
     if (SUPABASE_ADMIN_PASSWORD) env.SUPABASE_ADMIN_PASSWORD = SUPABASE_ADMIN_PASSWORD
+    if (SUPABASE_AUTH_TOKEN) env.SUPABASE_AUTH_TOKEN = SUPABASE_AUTH_TOKEN  // Pass through auth token
 
     const cwd = path.resolve(__dirname, '..')
 

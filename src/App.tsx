@@ -3,6 +3,7 @@ import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
 import AdminPage from './components/AdminPage';
 import { initializeNotifications } from './utils/notificationUtils';
+import { supabase } from './utils/supabase';
 import './index.css';
 
 function App() {
@@ -10,23 +11,31 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const savedUser = localStorage.getItem('ccodeUser');
-    if (savedUser) {
+    const init = async () => {
+      // Only restore saved user if there is an active Supabase session
       try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-        
-        // Initialize notifications if user has preferences
-        if (userData.preferences?.notifications) {
-          initializeNotifications(userData.preferences.notifications);
+        const savedUser = localStorage.getItem('ccodeUser');
+        const { data: sessionData } = await supabase.auth.getSession();
+        const hasSession = !!sessionData.session;
+
+        if (savedUser && hasSession) {
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
+          if (userData.preferences?.notifications) {
+            await initializeNotifications(userData.preferences.notifications);
+          }
+        } else if (savedUser && !hasSession) {
+          // Clear stale local user if no Supabase session
+          localStorage.removeItem('ccodeUser');
         }
       } catch (error) {
-        console.error('Error parsing saved user:', error);
+        console.error('Startup auth init error:', error);
         localStorage.removeItem('ccodeUser');
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+    void init();
   }, []);
 
   const handleLogin = async (userData: any) => {
@@ -39,7 +48,12 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Supabase signOut failed or was unnecessary:', e);
+    }
     setUser(null);
     localStorage.removeItem('ccodeUser');
     // Notifications will be automatically cleared when the app unmounts

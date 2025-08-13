@@ -66,74 +66,55 @@ export interface Admin {
 // User management functions
 export const createUserProfile = async (userData: UserSignupData): Promise<User | null> => {
   try {
-    // Try to include the authenticated user's id so RLS (auth.uid() = id) passes and PK constraint is satisfied
-    const { data: authData } = await supabase.auth.getUser();
-    const authUserId = authData?.user?.id || undefined;
+    // Require an authenticated user session for profile creation
+    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !authData?.user?.id) {
+      console.error('No authenticated Supabase user for profile creation');
+      return null;
+    }
+    const authUserId = authData.user.id;
 
     const payload: any = {
       ...userData,
+      id: authUserId,
     };
-    if (authUserId) {
-      (payload as any).id = authUserId;
-    }
 
     // Use upsert to avoid 409 conflicts on repeated registrations
-    // Prefer primary key (id) conflict if available; otherwise email is unique too
     const { data, error } = await supabase
       .from('users')
-      .upsert([payload], { onConflict: authUserId ? 'id' : 'email' })
+      .upsert([payload], { onConflict: 'id' })
       .select()
       .single();
 
     if (error) {
       console.error('Error creating user profile:', error);
 
-      // If conflict persists, try fetching existing record by email
-      if (error.code === '23505' || (error.status === 409)) {
-        const { data: existing, error: selectError } = await supabase
+      // If conflict persists, fetch existing record by id/email
+      if (error.code === '23505' || error.status === 409) {
+        const { data: existingById } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUserId)
+          .single();
+        if (existingById) return existingById as User;
+
+        const { data: existingByEmail } = await supabase
           .from('users')
           .select('*')
           .eq('email', userData.email)
           .single();
-        if (!selectError && existing) return existing as User;
+        if (existingByEmail) return existingByEmail as User;
       }
 
-      // If table doesn't exist, create a mock user for now
-      if ((error as any).code === 'PGRST205' || (error as any).message?.includes('does not exist')) {
-        console.log('Users table not found, creating mock user profile');
-        return {
-          id: `mock-${Date.now()}`,
-          email: userData.email,
-          registration_no: userData.registration_no,
-          name: userData.name,
-          gender: userData.gender,
-          hostel_code: userData.hostel_code,
-          hostel_number: userData.hostel_number,
-          room_number: userData.room_number,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-      }
+      // Do not fabricate/mock users; enforce real persistence
       return null;
     }
 
     return data as User;
   } catch (error) {
     console.error('Error creating user profile:', error);
-    // Create a mock user as fallback
-    console.log('Creating mock user profile due to error');
-    return {
-      id: `mock-${Date.now()}`,
-      email: userData.email,
-      registration_no: userData.registration_no,
-      name: userData.name,
-      gender: userData.gender,
-      hostel_code: userData.hostel_code,
-      hostel_number: userData.hostel_number,
-      room_number: userData.room_number,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    // Do not fabricate user on error
+    return null;
   }
 }
 

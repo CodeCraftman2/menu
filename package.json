@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "dev:admin-uploader": "node tools/dev_uploader_server.js"
+    "dev:admin-uploader": "node tools/dev_uploader_server.js",
+    "predeploy": "npm run build",
+    "deploy": "node deploy.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
@@ -26,11 +28,17 @@
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
+    "gh-pages": "^6.3.0",
     "globals": "^15.9.0",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
+  },
+  "homepage": "https://ccode.me",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodeCraftman2/CodeCraftman2.github.io.git"
   }
 }

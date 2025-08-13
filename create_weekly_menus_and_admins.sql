@@ -1,8 +1,26 @@
 -- Check if admins table exists first
 DO $$
 BEGIN
-    -- If admins table already exists but is missing columns, add them
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'admins') THEN
+    -- Drop the existing admins table if it has the wrong foreign key constraint
+    IF EXISTS (
+        SELECT FROM pg_constraint 
+        WHERE conname = 'admins_id_fkey' 
+        AND conrelid = 'public.admins'::regclass
+    ) THEN
+        -- Table exists with problematic constraint - drop and recreate
+        DROP TABLE IF EXISTS admins CASCADE;
+    END IF;
+    
+    -- Create admins table if it doesn't exist (without FK to users)
+    IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'admins') THEN
+        CREATE TABLE admins (
+          id UUID PRIMARY KEY DEFAULT auth.uid(),
+          email TEXT UNIQUE,
+          name TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    ELSE
+        -- If admins table already exists but is missing columns, add them
         -- Add email column if it doesn't exist
         IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.admins'::regclass AND attname = 'email') THEN
             ALTER TABLE admins ADD COLUMN email TEXT UNIQUE;
@@ -17,14 +35,6 @@ BEGIN
         IF NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = 'public.admins'::regclass AND attname = 'created_at') THEN
             ALTER TABLE admins ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
         END IF;
-    ELSE
-        -- Create admins table if it doesn't exist
-        CREATE TABLE admins (
-          id UUID PRIMARY KEY DEFAULT auth.uid(),
-          email TEXT UNIQUE,
-          name TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
     END IF;
 END
 $$;
@@ -36,21 +46,17 @@ CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
--- Only admins can view admins table
+-- Only allow users to view their own admin row (avoids recursive self-references)
 DROP POLICY IF EXISTS "Admins can view admin profiles" ON admins;
 CREATE POLICY "Admins can view admin profiles" ON admins
-  FOR SELECT USING (auth.uid() IN (SELECT id FROM admins));
+  FOR SELECT USING (auth.uid() = id);
 
--- Only admins can insert into admins table
+-- Remove recursive insert policy to avoid infinite recursion and privilege escalation.
+-- Admin creation should be done via service_role or a controlled RPC/SQL executed by an admin.
 DROP POLICY IF EXISTS "Admins can create other admins" ON admins;
-CREATE POLICY "Admins can create other admins" ON admins
-  FOR INSERT WITH CHECK (auth.uid() IN (SELECT id FROM admins));
 
--- Special bootstrap policy for the first admin
--- This will allow the first admin to be created without existing admins
-DROP POLICY IF EXISTS "Bootstrap first admin" ON admins;
-CREATE POLICY "Bootstrap first admin" ON admins
-  FOR INSERT WITH CHECK (NOT EXISTS (SELECT 1 FROM admins));
+-- Bootstrap policy removed to avoid self-referential recursion.
+-- Seed the first admin using the service_role or a migration script before enabling RLS, or run a one-time insert as table owner.
 
 -- Create weekly_menus table if it doesn't exist
 CREATE TABLE IF NOT EXISTS weekly_menus (

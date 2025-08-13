@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase'
 
 interface AdminPageProps {
@@ -20,8 +20,45 @@ const AdminPage: React.FC<AdminPageProps> = ({ user, onLogout }) => {
   const [logs, setLogs] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [usePythonLocal, setUsePythonLocal] = useState<boolean>(window.location.hostname === 'localhost')
+  const [isVerifiedAdmin, setIsVerifiedAdmin] = useState<boolean>(false)
+  const [adminCheckError, setAdminCheckError] = useState<string | null>(null)
 
   const log = (m: string) => setLogs(prev => [...prev, m])
+
+  // Verify admin status on load
+  useEffect(() => {
+    const verifyAdminStatus = async () => {
+      try {
+        // Check if user is in admins table
+        const { data, error } = await supabase
+          .from('admins')
+          .select('id, email, name')
+          .eq('id', user.id)
+          .single()
+        
+        if (error) {
+          console.error('Admin verification error:', error)
+          setAdminCheckError(`Admin verification failed: ${error.message}`)
+          setIsVerifiedAdmin(false)
+          return
+        }
+        
+        if (data) {
+          setIsVerifiedAdmin(true)
+          log(`✅ Verified admin access for: ${data.email || user.email}`)
+        } else {
+          setAdminCheckError('User not found in admins table')
+          setIsVerifiedAdmin(false)
+        }
+      } catch (e: any) {
+        console.error('Admin verification exception:', e)
+        setAdminCheckError(`Error: ${e.message || String(e)}`)
+        setIsVerifiedAdmin(false)
+      }
+    }
+    
+    verifyAdminStatus()
+  }, [user.id, user.email])
 
   const postFilesToLocalPython = async (files: FileList) => {
     const form = new FormData()
@@ -66,12 +103,29 @@ const AdminPage: React.FC<AdminPageProps> = ({ user, onLogout }) => {
 
           log(`Processing ${file.name} => season=${season}, hostels=${hostels.length}`)
 
+          // Resolve current authenticated user id to set created_by
+          const { data: authData } = await supabase.auth.getUser()
+          const createdBy = authData?.user?.id
+
           for (const hostel of hostels) {
-            // Delete existing for hostel+season
-            const { error: delErr } = await supabase
+            // Compute structured hostel fields
+            const hostel_code = hostel.startsWith('BH') ? 'BH' : 'LH'
+            const hostel_number = parseInt(hostel.replace(/[^0-9]/g, '')) || 0
+
+            // Delete existing for hostel+season (prefer code+number; also clear legacy 'hostel' rows)
+            let { error: delErr } = await supabase
               .from('weekly_menus')
               .delete()
-              .match({ hostel, season })
+              .match({ hostel_code, hostel_number, season })
+
+            if (delErr) {
+              log(`⚠️ Delete by code/number failed for ${hostel} (${season}): ${delErr.message} — trying legacy key`)
+              const legacy = await supabase
+                .from('weekly_menus')
+                .delete()
+                .match({ hostel, season })
+              delErr = legacy.error || undefined
+            }
 
             if (delErr) {
               log(`⚠️ Delete failed for ${hostel} (${season}): ${delErr.message}`)
@@ -88,10 +142,13 @@ const AdminPage: React.FC<AdminPageProps> = ({ user, onLogout }) => {
             for (const wk of json.weeks) {
               const payload = {
                 hostel,
+                hostel_code,
+                hostel_number,
                 season,
                 week: wk.week,
                 days_data: wk.days,
-                campus: hostel.startsWith('BH') ? 'boys' : 'girls'
+                campus: hostel_code === 'BH' ? 'boys' : 'girls',
+                created_by: createdBy || null
               }
               const { error: insErr } = await supabase
                 .from('weekly_menus')
@@ -125,6 +182,20 @@ const AdminPage: React.FC<AdminPageProps> = ({ user, onLogout }) => {
             onClick={onLogout}
           >Sign out</button>
         </div>
+
+        {!isVerifiedAdmin && adminCheckError && (
+          <div className="glass-card rounded-2xl p-6 mb-6 border border-red-500/50 bg-red-900/20">
+            <h2 className="text-lg font-semibold text-red-400 mb-2">Admin Verification Failed</h2>
+            <p className="text-white/90 mb-4">{adminCheckError}</p>
+            <p className="text-white/70 text-sm">
+              Make sure your account (id: {user.id}) is registered in the admins table. 
+              Run this SQL in Supabase SQL Editor:
+            </p>
+            <pre className="bg-black/30 p-3 rounded-lg mt-2 text-xs overflow-auto">
+              {`INSERT INTO admins (id, email, name) VALUES ('${user.id}', '${user.email}', '${user.name || 'Admin User'}');`}
+            </pre>
+          </div>
+        )}
 
         <div className="glass-card rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between mb-3">
