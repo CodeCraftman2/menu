@@ -176,172 +176,202 @@ const SupabaseAuthForm: React.FC<SupabaseAuthFormProps> = ({ onLogin, isAdmin = 
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setInfo(null);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
+  setInfo(null);
 
-    if (isLogin) {
-      // Log attempt info for debugging
-      console.log(`Attempting login for: ${formData.email} (Admin mode: ${isAdmin})`);
-      
-      // Login with Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password
-      });
-      
-      if (error) {
-        // Provide clearer guidance, especially for admins
-        console.error('Login error:', error);
-        const raw = error.message || '';
-        
-        if (raw.toLowerCase().includes('invalid login credentials')) {
-          if (isAdmin) {
-            // Check if email exists in admins table regardless of auth
-            const { data: adminData, error: adminError } = await supabase
-              .from('admins')
-              .select('email')
-              .eq('email', formData.email)
-              .maybeSingle();
-              
-            if (adminData) {
-              setError(
-                'Your email exists in the admin table, but your password is incorrect or your auth account is not set up. ' +
-                'Please try using "Sign Up" first to create your auth account with this email.'
-              );
-            } else {
-              setError(
-                'Invalid login credentials. Note: You need both (1) an entry in the admins table AND ' +
-                '(2) a Supabase Auth account with the same email. Please sign up first.'
-              );
-            }
-          } else {
-            setError('Invalid login credentials. Please check your email and password or reset your password.');
-          }
-        } else {
-          setError(raw);
-        }
-        setLoading(false);
-        return;
+  // Always ensure no session is lingering before any auth action in this handler.
+  // We only need to force sign-out for login attempts; for sign-up we keep as-is.
+  const forceClearSession = async () => {
+    try {
+      // If a session exists, sign out to clear refresh/access tokens
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session) {
+        await supabase.auth.signOut();
       }
-
-      // Additional debug info
-      console.log('Auth successful, user:', data.user?.id);
-      
-      if (isAdmin) {
-        // For admin login, check the admins table
-        const { data: adminProfile } = await supabase
-          .from('admins')
-          .select('*')
-          .eq('id', data.user?.id)
-          .single();
-        
-        if (adminProfile) {
-          // User exists in admins table, they are an admin
-          onLogin({
-            ...adminProfile,
-            role: 'admin',
-            email: adminProfile.email || data.user?.email
-          });
-        } else {
-          // User authenticated but not in admins table
-          setError("Your account doesn't have admin privileges");
-          setLoading(false);
-          // Sign out the user since they're not an admin
-          await supabase.auth.signOut();
-          return;
-        }
-      } else {
-        // For regular user login, check the users table
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', formData.email)
-          .single();
-        
-        if (profile) {
-          onLogin(profile);
-          if (profile.preferences?.notifications) {
-            await initializeNotifications(profile.preferences.notifications);
-          }
-        }
-      }
-      setLoading(false);
-    } else {
-      // Sign up with Supabase Auth
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password
-      });
-      if (signUpError) {
-        setError(signUpError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (isAdmin) {
-        // Admin sign-up flow: ensure authenticated, then create admin profile
-        let currentUser = (await supabase.auth.getUser()).data.user;
-        if (!currentUser) {
-          // Some projects require email confirmation to get a session. Try immediate sign-in.
-          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email: formData.email,
-            password: formData.password
-          });
-          if (signInError) {
-            setError(`Sign-in required to finalize admin setup. ${signInError.message}`);
-            setLoading(false);
-            return;
-          }
-          currentUser = signInData.user;
-        }
-
-        const adminProfile = await createAdminProfile({ email: formData.email, name: formData.name });
-        if (!adminProfile) {
-          setError('Failed to create admin profile. If this is the first admin, ensure the SQL script was applied.');
-          setLoading(false);
-          return;
-        }
-
-        onLogin({ ...adminProfile, role: 'admin', email: adminProfile.email || formData.email });
-        setLoading(false);
-        return;
-      }
-
-      // Regular user sign-up flow: Save user profile in custom users table
-      const userData: UserSignupData = {
-        email: formData.email,
-        registration_no: formData.rollNumber,
-        name: formData.name,
-        gender: formData.gender,
-        hostel_code: formData.hostelCode,
-        hostel_number: formData.hostelNumber,
-        room_number: formData.roomNumber
-      };
-      const userProfile = await createUserProfile(userData);
-      if (userProfile) {
-        // Save notification preference
-        // @ts-expect-error augmenting runtime object
-        userProfile.preferences = {
-          notifications: {
-            global: formData.notifications,
-            breakfast: formData.notifications,
-            lunch: formData.notifications,
-            snacks: formData.notifications,
-            dinner: formData.notifications
-          }
-        };
-        onLogin(userProfile);
-        if (formData.notifications) {
-          await requestNotificationPermission();
-          await initializeNotifications((userProfile as any).preferences.notifications);
-        }
-      }
-      setLoading(false);
+    } catch (_) {
+      // ignore, we'll still clear storage defensively
+    } finally {
+      try {
+        // Clear any persisted SDK state that might cause reuse of a stale session
+        localStorage?.removeItem('sb-' + supabase.supabaseKey + '-auth-token');
+      } catch (_) {}
+      try {
+        localStorage?.clear();
+      } catch (_) {}
+      try {
+        sessionStorage?.clear();
+      } catch (_) {}
+      // Small delay to ensure storage/signOut settle before next call
+      await new Promise((r) => setTimeout(r, 50));
     }
   };
+
+  if (isLogin) {
+    // Forcefully clear any existing session before a password login attempt
+    await forceClearSession();
+
+    // Log attempt info for debugging
+    console.log(`Attempting login for: ${formData.email} (Admin mode: ${isAdmin})`);
+
+    // Fresh login with Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: formData.email,
+      password: formData.password
+    });
+
+    if (error) {
+      // Provide clearer guidance, especially for admins
+      console.error('Login error:', error);
+      const raw = error.message || '';
+
+      if (raw.toLowerCase().includes('invalid login credentials')) {
+        if (isAdmin) {
+          // Check if email exists in admins table regardless of auth
+          const { data: adminData } = await supabase
+            .from('admins')
+            .select('email')
+            .eq('email', formData.email)
+            .maybeSingle();
+
+          if (adminData) {
+            setError(
+              'Your email exists in the admin table, but your password is incorrect or your auth account is not set up. ' +
+              'Please try using "Sign Up" first to create your auth account with this email.'
+            );
+          } else {
+            setError(
+              'Invalid login credentials. Note: You need both (1) an entry in the admins table AND ' +
+              '(2) a Supabase Auth account with the same email. Please sign up first.'
+            );
+          }
+        } else {
+          setError('Invalid login credentials. Please check your email and password or reset your password.');
+        }
+      } else {
+        setError(raw);
+      }
+      setLoading(false);
+      return;
+    }
+
+    // Additional debug info
+    console.log('Auth successful, user:', data.user?.id);
+
+    if (isAdmin) {
+      // For admin login, check the admins table
+      const { data: adminProfile } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('id', data.user?.id)
+        .single();
+
+      if (adminProfile) {
+        // User exists in admins table, they are an admin
+        onLogin({
+          ...adminProfile,
+          role: 'admin',
+          email: adminProfile.email || data.user?.email
+        });
+      } else {
+        // User authenticated but not in admins table
+        setError("Your account doesn't have admin privileges");
+        setLoading(false);
+        // Sign out the user since they're not an admin
+        await supabase.auth.signOut();
+        return;
+      }
+    } else {
+      // For regular user login, check the users table
+      const { data: profile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', formData.email)
+        .single();
+
+      if (profile) {
+        onLogin(profile);
+        if (profile.preferences?.notifications) {
+          await initializeNotifications(profile.preferences.notifications);
+        }
+      }
+    }
+
+    setLoading(false);
+  } else {
+    // Sign up flow remains unchanged
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password
+    });
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (isAdmin) {
+      // Admin sign-up flow: ensure authenticated, then create admin profile
+      let currentUser = (await supabase.auth.getUser()).data.user;
+      if (!currentUser) {
+        // Some projects require email confirmation to get a session. Try immediate sign-in.
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
+        });
+        if (signInError) {
+          setError(`Sign-in required to finalize admin setup. ${signInError.message}`);
+          setLoading(false);
+          return;
+        }
+        currentUser = signInData.user;
+      }
+
+      const adminProfile = await createAdminProfile({ email: formData.email, name: formData.name });
+      if (!adminProfile) {
+        setError('Failed to create admin profile. If this is the first admin, ensure the SQL script was applied.');
+        setLoading(false);
+        return;
+      }
+
+      onLogin({ ...adminProfile, role: 'admin', email: adminProfile.email || formData.email });
+      setLoading(false);
+      return;
+    }
+
+    // Regular user sign-up flow: Save user profile in custom users table
+    const userData: UserSignupData = {
+      email: formData.email,
+      registration_no: formData.rollNumber,
+      name: formData.name,
+      gender: formData.gender,
+      hostel_code: formData.hostelCode,
+      hostel_number: formData.hostelNumber,
+      room_number: formData.roomNumber
+    };
+    const userProfile = await createUserProfile(userData);
+    if (userProfile) {
+      // @ts-expect-error augmenting runtime object
+      userProfile.preferences = {
+        notifications: {
+          global: formData.notifications,
+          breakfast: formData.notifications,
+          lunch: formData.notifications,
+          snacks: formData.notifications,
+          dinner: formData.notifications
+        }
+      };
+      onLogin(userProfile);
+      if (formData.notifications) {
+        await requestNotificationPermission();
+        await initializeNotifications((userProfile as any).preferences.notifications);
+      }
+    }
+    setLoading(false);
+  }
+};
 
   if (oauthLoading) {
     return (
